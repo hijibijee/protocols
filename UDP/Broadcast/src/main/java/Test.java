@@ -2,24 +2,65 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.*;
 
+/**
+ * Run this program on multiple machines in your network
+ * Change the InetAddress for client according to each machine
+ * Set different name for the client in each machine for fun
+ * See the effect of broadcasting
+ */
 public class Test {
     public static void main(String[] args) throws IOException, InterruptedException {
-        UDPClient client1 = new UDPClient(InetAddress.getByName("192.168.0.105"), 8090, "CLIENT-1"); // run ipconfig and copy the ipv4 address of the machine
+        UDPClient client = new UDPClient(InetAddress.getByName("192.168.0.105"), 8090, "CLIENT-1"); // run ipconfig and copy the ipv4 address of the machine
+        UDPBroadcaster broadcaster = new UDPBroadcaster(InetAddress.getByName("255.255.255.255")); // 255.255.255.255 is the broadcast address for local network
+        Scanner scanner = new Scanner(System.in);
 
-        client1.broadcast("Hi from client 1", InetAddress.getByName("255.255.255.255"), 8090); // 255.255.255.255 is the broadcast channel for local network
-        client1.broadcast("Second message from client 1", InetAddress.getByName("255.255.255.255"), 8090);
-        client1.broadcast("Third message from client 1", InetAddress.getByName("255.255.255.255"), 8090);
-        client1.broadcast("Fourth message from client 1", InetAddress.getByName("255.255.255.255"), 8090);
+        Thread broadcasterThread = new Thread(() -> {
+            System.out.println("Just type in your message and press enter to broadcast it to all devices connected to the network and listening to port 8090");
+            System.out.println("Type STOP to stop broadcasting");
+            while (true) {
+                String message = scanner.nextLine();
+                if (message.equals("STOP")) {
+                    break;
+                }
+                try {
+                    broadcaster.broadcast(message, 8090);
+                } catch (IOException e) {
+                    System.out.println("Failed to broadcast message: " + message);
+                }
+            }
+            broadcaster.close();
+            client.close();
+        });
 
-        Thread.sleep(10000);
-        client1.close();
+        while (true) {
+            System.out.println("Choose your role: broadcaster/listener/both");
+            String answer = scanner.nextLine();
+            boolean wrongAnswer = false;
+
+            switch (answer) {
+                case "both" -> {
+                    broadcasterThread.start();
+                    client.start();
+                }
+                case "listener" -> {
+                    System.out.println("Type STOP to close program");
+                    client.start();
+                    while (true) {
+                        String stop = scanner.nextLine();
+                        if (stop.equals("STOP")) {
+                            break;
+                        }
+                    }
+                    client.close();
+                }
+                case "broadcaster" -> broadcasterThread.start();
+                default -> wrongAnswer = true;
+            }
+
+            if (!wrongAnswer) break;
+        }
     }
 
     public static List<InetAddress> listAllBroadcastAddresses() throws SocketException {

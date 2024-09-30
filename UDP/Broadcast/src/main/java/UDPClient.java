@@ -8,7 +8,7 @@ public class UDPClient extends Thread {
     private final int PORT;
     private final InetAddress ADDRESS;
     private final DatagramSocket serverSocket;
-    private final Thread listenerThread;
+    private Thread listenerThread;
 
     UDPClient(InetAddress address, int port, String name) throws SocketException {
         this.ADDRESS = address;
@@ -16,7 +16,7 @@ public class UDPClient extends Thread {
         setName(name);
         serverSocket = new DatagramSocket(PORT, ADDRESS);
         listenerThread = new Thread(() -> {
-            while (true) {
+            while (!this.isInterrupted()) {
                 byte[] buffer = new byte[256];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
@@ -29,18 +29,11 @@ public class UDPClient extends Thread {
                 }
             }
         });
-        listenerThread.start();
     }
 
-    public void broadcast(String message, InetAddress broadcastAddress, int port) throws IOException {
-        DatagramSocket socket = new DatagramSocket();
-        socket.setBroadcast(true);
-
-        byte [] buffer = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, broadcastAddress, port);
-
-        socket.send(packet);
-        socket.close();
+    @Override
+    public void run() {
+        listenerThread.start();
     }
 
     public void close() {
